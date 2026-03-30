@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stock Data Intelligence Dashboard</title>
+  <style>
+    :root {
+      --navy: #092247;
+      --navy-2: #0e315f;
+      --blue: #1f6feb;
+      --blue-soft: #dcecff;
+      --green: #1ca64c;
+      --orange: #f08a24;
+      --ink: #16304d;
+      --muted: #607089;
+      --border: #d7e0ec;
+      --bg: #eef4fb;
+      --card: #ffffff;
+      --shadow: 0 10px 24px rgba(9, 34, 71, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, sans-serif;
+      background: linear-gradient(180deg, #f5f8fd 0%, #edf3fb 100%);
+      color: var(--ink);
+    }
+    .page {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 170px 1fr;
+    }
+    .sidebar {
+      background: linear-gradient(180deg, var(--navy) 0%, #071a34 100%);
+      color: #fff;
+      padding: 12px 10px;
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+    .side-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      padding: 12px;
+    }
+    .side-title {
+      font-weight: 700;
+      margin-bottom: 10px;
+      font-size: 0.95rem;
+    }
+    .company-list { display: grid; gap: 8px; }
+    .company-item {
+      background: transparent;
+      border: none;
+      color: #fff;
+      text-align: left;
+      border-radius: 8px;
+      padding: 10px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    .company-item.active,
+    .company-item:hover { background: rgba(41, 119, 255, 0.55); }
+    .company-item strong { display: block; font-size: 1.1rem; }
+    .company-item span { color: rgba(255, 255, 255, 0.72); font-size: 0.83rem; }
+    .sidebar ul { margin: 0; padding-left: 16px; color: rgba(255,255,255,.85); }
+    .sidebar li { margin-bottom: 6px; }
+    .range-select, .refresh-btn {
+      width: 100%;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,.14);
+      padding: 10px 12px;
+      font-size: 0.95rem;
+    }
+    .range-select { background: #fff; color: var(--ink); }
+    .refresh-btn {
+      background: linear-gradient(180deg, #2d7dff 0%, #1f6feb 100%);
+      color: #fff;
+      margin-top: 10px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .main { padding: 0; }
+    .topbar {
+      background: linear-gradient(90deg, var(--navy) 0%, #061a34 100%);
+      color: #fff;
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .title { font-size: 1.05rem; font-weight: 800; }
+    .subtitle { margin-top: 3px; color: rgba(255,255,255,.75); font-size: 0.78rem; }
+    .updated { font-size: 0.82rem; color: rgba(255,255,255,.8); }
+    .content { padding: 10px; display: grid; gap: 10px; }
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    .step-card, .metric-card, .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+    .step-card { padding: 12px 14px; background: linear-gradient(180deg, #f6fffa 0%, #eff9f4 100%); }
+    .step-title { font-weight: 700; font-size: 0.95rem; }
+    .step-sub { font-size: 0.82rem; color: var(--muted); margin-top: 4px; }
+    .step-ok { color: var(--green); font-weight: 700; margin-top: 6px; font-size: 0.83rem; }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr) 1.2fr;
+      gap: 10px;
+    }
+    .metric-card { padding: 10px 12px; min-height: 88px; }
+    .metric-label { font-size: 0.8rem; color: var(--ink); font-weight: 700; }
+    .metric-value { font-size: 1.15rem; font-weight: 800; margin-top: 8px; }
+    .metric-value.blue { color: var(--blue); }
+    .metric-value.green { color: var(--green); }
+    .metric-value.orange { color: var(--orange); }
+    .metric-value.dark { color: #303743; }
+    .board {
+      display: grid;
+      grid-template-columns: 1.9fr 0.75fr;
+      gap: 10px;
+    }
+    .panel { padding: 10px; }
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+    .tab-group { display: flex; gap: 6px; }
+    .tab {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #edf3fa;
+      color: #334a68;
+      padding: 8px 12px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 0.8rem;
+    }
+    .tab.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+    .chart-wrap { height: 290px; }
+    canvas { width: 100%; height: 100%; }
+    .right-stack { display: grid; gap: 10px; }
+    .heatmap {
+      display: grid;
+      gap: 6px;
+      margin-top: 10px;
+    }
+    .heatmap-row { display: grid; grid-template-columns: 70px repeat(5, 1fr); gap: 4px; align-items: center; }
+    .heatmap-cell, .heatmap-label {
+      border-radius: 4px;
+      padding: 8px 6px;
+      text-align: center;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+    .heatmap-label { background: #f2f6fb; color: #3a5274; }
+    .gauge-box { display: grid; place-items: center; padding-top: 12px; }
+    .gauge-value { text-align: center; margin-top: -36px; }
+    .gauge-number { font-size: 1.9rem; font-weight: 800; color: var(--green); }
+    .gauge-label { font-weight: 700; color: var(--green); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+    }
+    th, td {
+      border: 1px solid #e2e8f0;
+      padding: 7px 8px;
+      text-align: left;
+    }
+    th { background: #f0f5fb; color: #334a68; }
+    .positive { color: var(--green); font-weight: 700; }
+    .negative { color: #d24040; font-weight: 700; }
+    .footer-note {
+      background: #e8f2ff;
+      border: 1px solid #c7dcff;
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: #34506e;
+      font-size: 0.82rem;
+    }
+    @media (max-width: 1180px) {
+      .page, .board { grid-template-columns: 1fr; }
+      .steps, .metrics { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <aside class="sidebar">
+      <div class="side-card">
+        <div class="side-title">Companies</div>
+        <div id="companyList" class="company-list"></div>
+      </div>
+      <div class="side-card">
+        <div class="side-title">Date Range</div>
+        <select id="rangeSelect" class="range-select">
+          <option value="30">Last 30 Days</option>
+          <option value="90">Last 90 Days</option>
+          <option value="180">YTD / 180 Days</option>
+        </select>
+        <button id="refreshBtn" class="refresh-btn">Refresh Data</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <div class="title">Stock Data Intelligence Dashboard</div>
+          <div class="subtitle">Using yfinance API | Data is dynamic | Changes daily | Updates when you refresh</div>
+        </div>
+        <div class="updated" id="lastUpdated">Last Updated: --</div>
+      </div>
+
+      <div class="content">
+        <section class="metrics">
+          <div class="metric-card"><div class="metric-label">Open (Today)</div><div class="metric-value blue" id="openToday">--</div></div>
+          <div class="metric-card"><div class="metric-label">Close (Today)</div><div class="metric-value green" id="closeToday">--</div></div>
+          <div class="metric-card"><div class="metric-label">Daily Return</div><div class="metric-value green" id="returnToday">--</div></div>
+          <div class="metric-card"><div class="metric-label">7-Day MA</div><div class="metric-value orange" id="maToday">--</div></div>
+          <div class="metric-card"><div class="metric-label">52-Week High</div><div class="metric-value dark" id="high52">--</div></div>
+          <div class="metric-card"><div class="metric-label">52-Week Low</div><div class="metric-value dark" id="low52">--</div></div>
+          <div class="metric-card"><div class="metric-label">Sentiment Index</div><div class="metric-value green" id="sentimentToday">--</div></div>
+        </section>
+
+        <section class="board">
+          <div style="display:grid; gap:10px;">
+            <div class="panel">
+              <div class="panel-head">
+                <div id="chartHeader">INFY - Closing Price & 7-Day Moving Average</div>
+                <div class="tab-group">
+                  <button class="tab active" data-days="30">Last 30 Days</button>
+                  <button class="tab" data-days="90">Last 90 Days</button>
+                  <button class="tab" data-days="180">YTD</button>
+                </div>
+              </div>
+              <div class="chart-wrap"><canvas id="priceChart" width="900" height="320"></canvas></div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head"><div>Processed Stock Data (Last 10 Days)</div></div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Open</th>
+                    <th>High</th>
+                    <th>Low</th>
+                    <th>Close</th>
+                    <th>Daily Return</th>
+                    <th>7-Day MA</th>
+                  </tr>
+                </thead>
+                <tbody id="dataTable"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="right-stack">
+            <div class="panel">
+              <div class="panel-head"><div>Correlation (Last 90 Days)</div></div>
+              <div id="correlationGrid" class="heatmap"></div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head"><div id="gaugeTitle">Mock Sentiment Index</div></div>
+              <div class="gauge-box">
+                <canvas id="gaugeCanvas" width="260" height="180"></canvas>
+                <div class="gauge-value">
+                  <div class="gauge-number" id="gaugeNumber">--</div>
+                  <div class="gauge-label" id="gaugeLabel">Neutral</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div class="footer-note">
+          Using yfinance API | Data is dynamic | Changes daily | Updates when you refresh
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    const companyNames = {
+      INFY: "Infosys Limited",
+      TCS: "Tata Consultancy",
+      RELIANCE: "Reliance Ind.",
+      HDFCBANK: "HDFC Bank",
+      ICICIBANK: "ICICI Bank",
+    };
+
+    const state = {
+      selectedSymbol: "INFY",
+      days: 30,
+      companies: [],
+      series: [],
+      autoRefreshMs: 300000,
+      refreshLabel: "",
+    };
+
+    async function fetchJson(url, options = {}) {
+      const response = await fetch(url, options);
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({ detail: "Request failed" }));
+        throw new Error(payload.detail || `Request failed for ${url}`);
+      }
+      return response.json();
+    }
+
+    function inr(value) {
+      return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 2 }).format(value);
+    }
+
+    function pct(value) {
+      return `${(value * 100).toFixed(2)}%`;
+    }
+
+    function sentimentText(value) {
+      if (value >= 70) return "Bullish";
+      if (value >= 55) return "Positive";
+      if (value >= 45) return "Neutral";
+      if (value >= 30) return "Weak";
+      return "Bearish";
+    }
+
+    function formatUpdatedLabel(timestamp) {
+      if (!timestamp) return "";
+      const date = new Date(timestamp.endsWith("Z") ? timestamp : `${timestamp}Z`);
+      return `Last Updated: ${date.toLocaleString("en-IN")}`;
+    }
+
+    function renderCompanies() {
+      const target = document.getElementById("companyList");
+      target.innerHTML = "";
+      state.companies.forEach((company) => {
+        const button = document.createElement("button");
+        button.className = `company-item ${company.symbol === state.selectedSymbol ? "active" : ""}`;
+        button.innerHTML = `<strong>${company.symbol}</strong><span>${companyNames[company.symbol] || company.name}</span>`;
+        button.onclick = async () => {
+          state.selectedSymbol = company.symbol;
+          renderCompanies();
+          await loadSelectedCompany();
+        };
+        target.appendChild(button);
+      });
+    }
+
+    function drawLineChart(points) {
+      const canvas = document.getElementById("priceChart");
+      const ctx = canvas.getContext("2d");
+      const width = canvas.width;
+      const height = canvas.height;
+      const left = 54;
+      const top = 28;
+      const right = 14;
+      const bottom = 34;
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, width, height);
+      if (!points.length) return;
+
+      const closes = points.map((point) => point.close);
+      const ma = points.map((point) => point.moving_average_7d);
+      const all = closes.concat(ma);
+      const min = Math.min(...all) * 0.96;
+      const max = Math.max(...all) * 1.04;
+      const innerWidth = width - left - right;
+      const innerHeight = height - top - bottom;
+      const stepX = innerWidth / Math.max(points.length - 1, 1);
+      const scaleY = innerHeight / (max - min || 1);
+
+      ctx.strokeStyle = "#d9e3ef";
+      for (let i = 0; i < 5; i += 1) {
+        const y = top + (innerHeight / 4) * i;
+        ctx.beginPath();
+        ctx.moveTo(left, y);
+        ctx.lineTo(width - right, y);
+        ctx.stroke();
+      }
+
+      function plot(values, color) {
+        ctx.beginPath();
+        values.forEach((value, index) => {
+          const x = left + index * stepX;
+          const y = top + innerHeight - (value - min) * scaleY;
+          if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      }
+
+      plot(closes, "#1f6feb");
+      plot(ma, "#ff8b1a");
+
+      ctx.fillStyle = "#4a6281";
+      ctx.font = "12px Segoe UI";
+      ctx.fillText(inr(max), 4, top + 4);
+      ctx.fillText(inr(min), 4, top + innerHeight);
+      ctx.fillStyle = "#1f6feb";
+      ctx.fillText("Close Price", 120, 16);
+      ctx.fillStyle = "#ff8b1a";
+      ctx.fillText("7-Day MA", 220, 16);
+    }
+
+    function drawGauge(rawValue) {
+      const canvas = document.getElementById("gaugeCanvas");
+      const ctx = canvas.getContext("2d");
+      const value = Math.max(0, Math.min(100, rawValue));
+      const centerX = 130;
+      const centerY = 140;
+      const radius = 88;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.lineWidth = 20;
+
+      const segments = [
+        { start: Math.PI, end: Math.PI * 1.25, color: "#ff453a" },
+        { start: Math.PI * 1.25, end: Math.PI * 1.5, color: "#ff9f0a" },
+        { start: Math.PI * 1.5, end: Math.PI * 1.75, color: "#ffd60a" },
+        { start: Math.PI * 1.75, end: Math.PI * 2, color: "#32d74b" },
+      ];
+
+      segments.forEach((segment) => {
+        ctx.beginPath();
+        ctx.strokeStyle = segment.color;
+        ctx.arc(centerX, centerY, radius, segment.start, segment.end);
+        ctx.stroke();
+      });
+
+      const angle = Math.PI + (value / 100) * Math.PI;
+      const needleX = centerX + Math.cos(angle) * 74;
+      const needleY = centerY + Math.sin(angle) * 74;
+      ctx.beginPath();
+      ctx.strokeStyle = "#20344f";
+      ctx.lineWidth = 5;
+      ctx.moveTo(centerX, centerY);
+      ctx.lineTo(needleX, needleY);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.fillStyle = "#20344f";
+      ctx.arc(centerX, centerY, 7, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function renderTable(points) {
+      const target = document.getElementById("dataTable");
+      target.innerHTML = "";
+      points.slice(-10).reverse().forEach((point) => {
+        const tr = document.createElement("tr");
+        const dailyClass = point.daily_return >= 0 ? "positive" : "negative";
+        tr.innerHTML = `
+          <td>${point.date.slice(0, 10)}</td>
+          <td>${inr(point.open)}</td>
+          <td>${inr(point.high)}</td>
+          <td>${inr(point.low)}</td>
+          <td>${inr(point.close)}</td>
+          <td class="${dailyClass}">${pct(point.daily_return)}</td>
+          <td class="positive">${inr(point.moving_average_7d)}</td>
+        `;
+        target.appendChild(tr);
+      });
+    }
+
+    function heatColor(value) {
+      const normalized = Math.max(-1, Math.min(1, value));
+      const intensity = Math.round(((normalized + 1) / 2) * 180) + 60;
+      return `rgb(${235 - intensity / 3}, ${244 - intensity / 5}, ${255 - intensity})`;
+    }
+
+    function renderCorrelation(data) {
+      const grid = document.getElementById("correlationGrid");
+      grid.innerHTML = "";
+      const header = document.createElement("div");
+      header.className = "heatmap-row";
+      header.innerHTML = `<div></div>${data.symbols.map((symbol) => `<div class="heatmap-label">${symbol}</div>`).join("")}`;
+      grid.appendChild(header);
+      data.symbols.forEach((rowSymbol, rowIndex) => {
+        const row = document.createElement("div");
+        row.className = "heatmap-row";
+        row.innerHTML = `<div class="heatmap-label">${rowSymbol}</div>${data.matrix[rowIndex].map((value) => `<div class="heatmap-cell" style="background:${heatColor(value)};">${Number(value).toFixed(2)}</div>`).join("")}`;
+        grid.appendChild(row);
+      });
+    }
+
+    async function loadSelectedCompany() {
+      const [series, summary] = await Promise.all([
+        fetchJson(`/data/${state.selectedSymbol}?days=${state.days}`),
+        fetchJson(`/summary/${state.selectedSymbol}`),
+      ]);
+      state.series = series;
+      const latest = series[series.length - 1];
+      document.getElementById("chartHeader").textContent = `${state.selectedSymbol} - Closing Price & 7-Day Moving Average`;
+      const marketDate = latest ? latest.date.slice(0, 10) : "--";
+      document.getElementById("lastUpdated").textContent = state.refreshLabel
+        ? `${state.refreshLabel} | Market Date: ${marketDate}`
+        : `Market Date: ${marketDate}`;
+      document.getElementById("openToday").textContent = latest ? inr(latest.open) : "--";
+      document.getElementById("closeToday").textContent = latest ? inr(latest.close) : "--";
+      document.getElementById("returnToday").textContent = latest ? pct(latest.daily_return) : "--";
+      document.getElementById("maToday").textContent = latest ? inr(latest.moving_average_7d) : "--";
+      document.getElementById("high52").textContent = inr(summary.week_52_high);
+      document.getElementById("low52").textContent = inr(summary.week_52_low);
+      document.getElementById("sentimentToday").textContent = latest ? `${latest.sentiment_index.toFixed(2)} (${sentimentText(latest.sentiment_index)})` : "--";
+      document.getElementById("gaugeTitle").textContent = `Mock Sentiment Index (${state.selectedSymbol})`;
+      document.getElementById("gaugeNumber").textContent = latest ? latest.sentiment_index.toFixed(2) : "--";
+      document.getElementById("gaugeLabel").textContent = latest ? sentimentText(latest.sentiment_index) : "Neutral";
+      drawLineChart(series);
+      drawGauge(latest ? latest.sentiment_index : 50);
+      renderTable(series);
+    }
+
+    async function loadMeta() {
+      const [companies, correlation, refreshStatus] = await Promise.all([
+        fetchJson("/companies"),
+        fetchJson("/correlation?days=90").catch(() => ({ symbols: [], matrix: [] })),
+        fetchJson("/refresh/status").catch(() => ({ last_refresh_utc: null, last_error: null })),
+      ]);
+      state.companies = companies.filter((company) => companyNames[company.symbol]);
+      renderCompanies();
+      if (correlation.symbols.length) renderCorrelation(correlation);
+      state.refreshLabel = formatUpdatedLabel(refreshStatus.last_refresh_utc);
+      if (!state.series.length) {
+        document.getElementById("lastUpdated").textContent = state.refreshLabel || "";
+      }
+    }
+
+    async function refreshRealtime(silent = false) {
+      const button = document.getElementById("refreshBtn");
+      if (!silent) {
+        button.disabled = true;
+        button.textContent = "Refreshing...";
+      }
+      try {
+        const result = await fetchJson("/refresh/realtime?period=6mo", { method: "POST" });
+        await loadMeta();
+        await loadSelectedCompany();
+        if (!silent && result.errors && result.errors.length) {
+          console.warn("Partial yfinance refresh issues:", result.errors);
+        }
+      } catch (error) {
+        if (!silent) throw error;
+        await loadMeta();
+        if (state.companies.length) {
+          await loadSelectedCompany();
+        }
+      } finally {
+        if (!silent) {
+          button.disabled = false;
+          button.textContent = "Refresh Data";
+        }
+      }
+    }
+
+    document.getElementById("rangeSelect").addEventListener("change", async (event) => {
+      state.days = Number(event.target.value);
+      document.querySelectorAll(".tab").forEach((tab) => {
+        tab.classList.toggle("active", Number(tab.dataset.days) === state.days);
+      });
+      await loadSelectedCompany();
+    });
+
+    document.querySelectorAll(".tab").forEach((tab) => {
+      tab.addEventListener("click", async () => {
+        state.days = Number(tab.dataset.days);
+        document.getElementById("rangeSelect").value = String(state.days);
+        document.querySelectorAll(".tab").forEach((item) => item.classList.toggle("active", item === tab));
+        await loadSelectedCompany();
+      });
+    });
+
+    document.getElementById("refreshBtn").addEventListener("click", async () => {
+      await refreshRealtime();
+    });
+
+    async function init() {
+      await refreshRealtime(true);
+      if (!state.companies.length) {
+        await loadMeta();
+        await loadSelectedCompany();
+      }
+      window.setInterval(async () => {
+        await refreshRealtime(true);
+      }, state.autoRefreshMs);
+    }
+
+    init().catch((error) => {
+      document.body.innerHTML = `<pre style="padding:24px;color:#d24040;">${error.message}</pre>`;
+    });
+  </script>
+</body>
+</html>
