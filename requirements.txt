@@ -6,3 +6,4 @@ requests==2.32.4
 yfinance==0.2.65
 black==25.1.0
 ruff==0.12.10
+streamlit
